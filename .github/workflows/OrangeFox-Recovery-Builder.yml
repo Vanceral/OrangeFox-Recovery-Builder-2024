@@ -6,12 +6,11 @@ on:
       MANIFEST_BRANCH:
         description: 'OrangeFox Branch'
         required: true
-        default: '11.0'
+        default: '12.1'
         type: choice
         options:
         - '14.1'
         - '12.1'
-        - '11.0'
       DEVICE_TREE:
         description: 'Custom Recovery Tree'
         required: true
@@ -106,7 +105,7 @@ jobs:
     - name: Set-up Manifest
       run: |
         set -e
-        echo "Disk space before sync:"
+        echo "Disk before sync:"
         df -h
         mkdir -p ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
         cd ${GITHUB_WORKSPACE}/OrangeFox
@@ -119,11 +118,10 @@ jobs:
     - name: Verify Sync
       run: |
         set -e
-        echo "Disk space after sync:"
+        echo "Disk after sync:"
         df -h
         if [ ! -f ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/build/envsetup.sh ]; then
           echo "FATAL: build/envsetup.sh missing. Sync did not complete."
-          echo "--- Directory listing ---"
           ls -la ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/
           exit 1
         fi

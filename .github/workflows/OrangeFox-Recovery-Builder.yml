@@ -67,11 +67,21 @@ jobs:
 
     - name: Display Inputs
       run: |
-        echo "::group::User Environment Variables"
         echo "Manifest Branch: ${{ inputs.MANIFEST_BRANCH }}"
-        echo "Include Recovery Installer: ${{ inputs.RECOVERY_INSTALLER }}"
-        echo "Release recovery.tar For Samsung: ${{ inputs.RECOVERY_TAR }}"
-        echo "::endgroup::"
+        echo "Recovery Installer: ${{ inputs.RECOVERY_INSTALLER }}"
+        echo "Recovery TAR: ${{ inputs.RECOVERY_TAR }}"
+
+    - name: Free Disk Space
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+        sudo rm -rf /usr/local/share/boost
+        sudo apt-get clean
+        docker system prune -af || true
+        echo "Disk space after cleanup:"
+        df -h
 
     - name: Clean-up
       uses: rokibhasansagar/slimhub_actions@main
@@ -89,37 +99,35 @@ jobs:
         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
         chmod a+x ~/bin/repo
         sudo cp ~/bin/repo /usr/local/bin/repo
-        git clone https://gitlab.com/OrangeFox/misc/scripts
+        git clone https://gitlab.com/OrangeFox/misc/scripts --depth=1
         cd scripts
         sudo bash setup/android_build_env.sh
 
     - name: Set-up Manifest
       run: |
         set -e
+        echo "Disk space before sync:"
+        df -h
         mkdir -p ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
-        cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
+        cd ${GITHUB_WORKSPACE}/OrangeFox
         git config --global user.name "${{ github.actor }}"
         git config --global user.email "${{ github.actor }}@users.noreply.github.com"
-        repo init --depth=1 \
-          -u https://gitlab.com/OrangeFox/Manifest.git \
-          -b fox_${{ inputs.MANIFEST_BRANCH }}
-        repo sync -c -j$(nproc --all) \
-          --no-clone-bundle \
-          --no-tags \
-          --force-sync \
-          --optimized-fetch \
-          --prune
+        git clone https://gitlab.com/OrangeFox/sync.git --depth=1
+        cd sync
+        ./orangefox_sync.sh --branch ${{ inputs.MANIFEST_BRANCH }} --path ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
 
     - name: Verify Sync
       run: |
         set -e
+        echo "Disk space after sync:"
+        df -h
         if [ ! -f ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/build/envsetup.sh ]; then
-          echo "FATAL: build/envsetup.sh not found. Sync did not complete."
-          echo "Contents of sync directory:"
+          echo "FATAL: build/envsetup.sh missing. Sync did not complete."
+          echo "--- Directory listing ---"
           ls -la ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/
           exit 1
         fi
-        echo "Sync OK - build/envsetup.sh confirmed present."
+        echo "Sync verified OK."
 
     - name: Clone Device Tree
       run: |

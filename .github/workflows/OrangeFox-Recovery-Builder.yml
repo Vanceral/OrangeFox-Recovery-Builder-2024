@@ -53,7 +53,7 @@ on:
         default: true
 
 jobs:
-  build:
+build:
     name: Build OFRP by ${{ github.actor }}
     runs-on: ubuntu-latest
     if: github.event.repository.owner.id == github.event.sender.id

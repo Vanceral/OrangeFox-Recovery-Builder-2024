@@ -101,13 +101,14 @@ jobs:
       run: |
         set -e
         mkdir -p ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
-        cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
+        cd ${GITHUB_WORKSPACE}/OrangeFox
         git config --global user.name "${{ github.actor }}"
         git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+        git clone https://gitlab.com/OrangeFox/sync.git
+        cd sync
         
-        # Raw repo commands to bypass the interactive wrapper script
-        repo init -u https://gitlab.com/OrangeFox/manifest.git -b ${{ inputs.MANIFEST_BRANCH }} --depth=1
-        repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
+        # Use the official wrapper but pipe 'yes' to skip any interactive SSH prompts
+        yes | ./orangefox_sync.sh --branch ${{ inputs.MANIFEST_BRANCH }} --path ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
 
     - name: Clone Device Tree
       run: |

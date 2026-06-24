@@ -133,15 +133,6 @@ jobs:
         echo "--- Device tree files ---"
         ls -la
 
-    - name: Clone Common Device Tree
-      run: |
-        set -e
-        cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
-        git clone https://github.com/Vanceral/android_device_samsung_gts4lv-common \
-          -b lineage-22.2 \
-          --depth=1 \
-          device/samsung/gts4lv-common
-
     - name: Clone Kernel Source
       run: |
         set -e

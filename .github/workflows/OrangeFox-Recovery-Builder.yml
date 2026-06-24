@@ -106,21 +106,22 @@ jobs:
         git clone ${{ github.event.inputs.DEVICE_TREE }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.DEVICE_PATH }}
         cd ${{ github.event.inputs.DEVICE_PATH }}
         echo "COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_ENV
+
     - name: Clone Common Device Tree
-    run: |
-      cd ${GITHUB_WORKSPACE}/OrangeFox/fox_11.0
-      git clone https://github.com/Vanceral/android_device_samsung_gts4lv-common \
-      -b lineage-18.1 \
-      --depth=1 \
-      device/samsung/gts4lv-common
+      run: |
+        cd ${GITHUB_WORKSPACE}/OrangeFox/fox_11.0
+        git clone https://github.com/Vanceral/android_device_samsung_gts4lv-common \
+        -b lineage-18.1 \
+        --depth=1 \
+        device/samsung/gts4lv-common
       
     - name: Clone Kernel Source
-    run: |
-      cd ${GITHUB_WORKSPACE}/OrangeFox/fox_11.0
-      git clone https://github.com/LineageOS/android_kernel_samsung_sdm670 \
-      -b lineage-18.1 \
-      --depth=1 \
-      kernel/samsung/sdm670
+      run: |
+        cd ${GITHUB_WORKSPACE}/OrangeFox/fox_11.0
+        git clone https://github.com/LineageOS/android_kernel_samsung_sdm670 \
+        -b lineage-18.1 \
+        --depth=1 \
+        kernel/samsung/sdm670
 
     - name: Check Manifest Branch
       uses: haya14busa/action-cond@v1
@@ -161,32 +162,32 @@ jobs:
             echo "MD5_IMG=$(md5sum out/target/product/${{ github.event.inputs.DEVICE_NAME }}/target/product/${{ github.event.inputs.DEVICE_NAME }}/OrangeFox*.img | cut -d ' ' -f 1)" >> $GITHUB_ENV
         else
             echo "Recovery out directory is empty."
-            cd Exit
+            exit 1
         fi
 
     - name: Rename the Recovery
       run: |
         cd ${{ env.FILE_PATH }}/
         if [ "${{ github.event.inputs.BUILD_TARGET }}" = "boot" ]; then
-        mv OrangeFox*.img boot.img
-        echo "RECOVERY_TYPE=boot" >> $GITHUB_ENV
-        echo "boot.img file found!"
+          mv OrangeFox*.img boot.img
+          echo "RECOVERY_TYPE=boot" >> $GITHUB_ENV
+          echo "boot.img file found!"
         elif [ "${{ github.event.inputs.BUILD_TARGET }}" = "recovery" ]; then
-        mv OrangeFox*.img recovery.img
-        echo "RECOVERY_TYPE=recovery" >> $GITHUB_ENV
-        echo "recovery.img file found!"
+          mv OrangeFox*.img recovery.img
+          echo "RECOVERY_TYPE=recovery" >> $GITHUB_ENV
+          echo "recovery.img file found!"
         elif [ "${{ github.event.inputs.BUILD_TARGET }}" = "vendorboot" ]; then
-        mv OrangeFox*.img vendor_boot.img
-        echo "RECOVERY_TYPE=vendor_boot" >> $GITHUB_ENV
-        echo "vendor_boot.img file found!"
+          mv OrangeFox*.img vendor_boot.img
+          echo "RECOVERY_TYPE=vendor_boot" >> $GITHUB_ENV
+          echo "vendor_boot.img file found!"
         else
-        echo "No Recovery file found!"
+          echo "No Recovery file found!"
         fi
       continue-on-error: true
       
     - name: Include Recovery Installer
       run: |
-        if [ ${{ github.event.inputs.RECOVERY_INSTALLER }} = true ]; then
+        if [ "${{ github.event.inputs.RECOVERY_INSTALLER }}" == "true" ]; then
           cd ${{ env.FILE_PATH }}/
           wget https://github.com/kinguser981/recovery-installer/releases/download/11256427880/recovery-installer.zip
           zip -ur recovery-installer.zip ${{ env.RECOVERY_TYPE }}.img
@@ -195,7 +196,7 @@ jobs:
         
     - name: Recovery to tar for Samsung devices
       run: |
-        if [ ${{ github.event.inputs.RECOVERY_TAR }} = true ]; then
+        if [ "${{ github.event.inputs.RECOVERY_TAR }}" == "true" ]; then
           cd ${{ env.FILE_PATH }}/
           tar -cvf ${{ env.RECOVERY_TYPE }}.tar ${{ env.RECOVERY_TYPE }}.img
         fi
@@ -229,7 +230,7 @@ jobs:
         body: |
           Target: ${{ env.RECOVERY_TYPE }}.img
           Build: ${{ github.event.inputs.MANIFEST_BRANCH }}
-          Device: [Device Tree/Branch](${{ env.DEVICE_TREE_URL }}/tree/${{ inputs.DEVICE_TREE_BRANCH }})
+          Device: [Device Tree/Branch](${{ env.DEVICE_TREE_URL }}/tree/${{ github.event.inputs.DEVICE_TREE_BRANCH }})
           Commit: Most recent [commit](${{ env.DEVICE_TREE_URL }}/commit/${{ env.COMMIT_ID }}) during building.
           MD5 (img): ${{ env.MD5_IMG }}
           

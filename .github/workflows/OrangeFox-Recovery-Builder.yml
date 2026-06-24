@@ -68,10 +68,9 @@ jobs:
     - name: Display Inputs
       run: |
         echo "::group::User Environment Variables"
-        echo "Displaying variables/inputs."
         echo "Manifest Branch: ${{ inputs.MANIFEST_BRANCH }}"
         echo "Include Recovery Installer: ${{ inputs.RECOVERY_INSTALLER }}"
-        echo "Release recovery.tar For Samsung devices: ${{ inputs.RECOVERY_TAR }}"
+        echo "Release recovery.tar For Samsung: ${{ inputs.RECOVERY_TAR }}"
         echo "::endgroup::"
 
     - name: Clean-up
@@ -98,12 +97,29 @@ jobs:
       run: |
         set -e
         mkdir -p ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
-        cd ${GITHUB_WORKSPACE}/OrangeFox
+        cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
         git config --global user.name "${{ github.actor }}"
         git config --global user.email "${{ github.actor }}@users.noreply.github.com"
-        git clone https://gitlab.com/OrangeFox/sync.git
-        cd sync
-        ./orangefox_sync.sh --branch ${{ inputs.MANIFEST_BRANCH }} --path ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
+        repo init --depth=1 \
+          -u https://gitlab.com/OrangeFox/Manifest.git \
+          -b fox_${{ inputs.MANIFEST_BRANCH }}
+        repo sync -c -j$(nproc --all) \
+          --no-clone-bundle \
+          --no-tags \
+          --force-sync \
+          --optimized-fetch \
+          --prune
+
+    - name: Verify Sync
+      run: |
+        set -e
+        if [ ! -f ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/build/envsetup.sh ]; then
+          echo "FATAL: build/envsetup.sh not found. Sync did not complete."
+          echo "Contents of sync directory:"
+          ls -la ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/
+          exit 1
+        fi
+        echo "Sync OK - build/envsetup.sh confirmed present."
 
     - name: Clone Device Tree
       run: |
@@ -141,11 +157,10 @@ jobs:
 
     - name: Building OrangeFox
       run: |
+        set -e
         cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
-        set +e
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
-        set -e
         ${{ steps.fox_branch.outputs.value }}
 
     - name: Set Build Date

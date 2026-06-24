@@ -79,7 +79,6 @@ jobs:
         sudo rm -rf /usr/local/share/boost
         sudo apt-get clean
         docker system prune -af || true
-        echo "Disk space after cleanup:"
         df -h
 
     - name: Clean-up
@@ -105,8 +104,6 @@ jobs:
     - name: Set-up Manifest
       run: |
         set -e
-        echo "Disk before sync:"
-        df -h
         mkdir -p ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
         cd ${GITHUB_WORKSPACE}/OrangeFox
         git config --global user.name "${{ github.actor }}"
@@ -118,10 +115,9 @@ jobs:
     - name: Verify Sync
       run: |
         set -e
-        echo "Disk after sync:"
         df -h
         if [ ! -f ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/build/envsetup.sh ]; then
-          echo "FATAL: build/envsetup.sh missing. Sync did not complete."
+          echo "FATAL: build/envsetup.sh missing."
           ls -la ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/
           exit 1
         fi
@@ -153,21 +149,55 @@ jobs:
           --depth=1 \
           kernel/samsung/sdm670
 
-    - name: Check Manifest Branch
-      uses: haya14busa/action-cond@v1
-      id: fox_branch
-      with:
-        cond: ${{ inputs.MANIFEST_BRANCH == '11.0' || inputs.MANIFEST_BRANCH == '12.1' }}
-        if_true: lunch twrp_${{ inputs.DEVICE_NAME }}-eng && make clean && mka adbd ${{ inputs.BUILD_TARGET }}image
-        if_false: lunch omni_${{ inputs.DEVICE_NAME }}-eng && make clean && mka ${{ inputs.BUILD_TARGET }}image
-
-    - name: Building OrangeFox
+    - name: Run Lunch
       run: |
         set -e
         cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
-        ${{ steps.fox_branch.outputs.value }}
+        lunch twrp_${{ inputs.DEVICE_NAME }}-eng 2>&1 | tee /tmp/lunch.log
+        if [ ${PIPESTATUS[0]} -ne 0 ]; then
+          echo "--- LUNCH FAILED. Log below ---"
+          cat /tmp/lunch.log
+          exit 1
+        fi
+        echo "Lunch OK."
+
+    - name: Make Clean
+      run: |
+        set -e
+        cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
+        source build/envsetup.sh
+        export ALLOW_MISSING_DEPENDENCIES=true
+        lunch twrp_${{ inputs.DEVICE_NAME }}-eng 2>/dev/null
+        make clean 2>&1 | tee /tmp/clean.log
+        echo "Clean OK."
+
+    - name: Build Recovery
+      run: |
+        cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
+        source build/envsetup.sh
+        export ALLOW_MISSING_DEPENDENCIES=true
+        lunch twrp_${{ inputs.DEVICE_NAME }}-eng 2>/dev/null
+        mka adbd ${{ inputs.BUILD_TARGET }}image 2>&1 | tee /tmp/build.log
+        BUILD_EXIT=${PIPESTATUS[0]}
+        echo "Build exit code: $BUILD_EXIT"
+        if [ $BUILD_EXIT -ne 0 ]; then
+          echo "--- BUILD FAILED. Last 100 lines ---"
+          tail -100 /tmp/build.log
+          exit 1
+        fi
+
+    - name: Upload Build Log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-logs
+        path: |
+          /tmp/lunch.log
+          /tmp/clean.log
+          /tmp/build.log
+        if-no-files-found: ignore
 
     - name: Set Build Date
       run: |

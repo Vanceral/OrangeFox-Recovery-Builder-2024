@@ -58,6 +58,7 @@ jobs:
     if: github.event.repository.owner.id == github.event.sender.id
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BUILD_ROOT: /home/runner/fox
     permissions:
       contents: write
     steps:
@@ -104,21 +105,21 @@ jobs:
     - name: Set-up Manifest
       run: |
         set -e
-        mkdir -p ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
-        cd ${GITHUB_WORKSPACE}/OrangeFox
+        mkdir -p ${{ env.BUILD_ROOT }}
+        cd /home/runner
         git config --global user.name "${{ github.actor }}"
         git config --global user.email "${{ github.actor }}@users.noreply.github.com"
         git clone https://gitlab.com/OrangeFox/sync.git --depth=1
         cd sync
-        ./orangefox_sync.sh --branch ${{ inputs.MANIFEST_BRANCH }} --path ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
+        ./orangefox_sync.sh --branch ${{ inputs.MANIFEST_BRANCH }} --path ${{ env.BUILD_ROOT }}
 
     - name: Verify Sync
       run: |
         set -e
         df -h
-        if [ ! -f ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/build/envsetup.sh ]; then
+        if [ ! -f ${{ env.BUILD_ROOT }}/build/envsetup.sh ]; then
           echo "FATAL: build/envsetup.sh missing."
-          ls -la ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/
+          ls -la ${{ env.BUILD_ROOT }}/
           exit 1
         fi
         echo "Sync verified OK."
@@ -126,7 +127,7 @@ jobs:
     - name: Clone Device Tree
       run: |
         set -e
-        cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
+        cd ${{ env.BUILD_ROOT }}
         git clone ${{ inputs.DEVICE_TREE }} -b ${{ inputs.DEVICE_TREE_BRANCH }} ./${{ inputs.DEVICE_PATH }}
         cd ${{ inputs.DEVICE_PATH }}
         echo "COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_ENV
@@ -136,7 +137,7 @@ jobs:
     - name: Clone Kernel Source
       run: |
         set -e
-        cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
+        cd ${{ env.BUILD_ROOT }}
         git clone https://github.com/LineageOS/android_kernel_samsung_sdm670 \
           -b lineage-18.1 \
           --depth=1 \
@@ -144,7 +145,7 @@ jobs:
 
     - name: Run Lunch
       run: |
-        cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
+        cd ${{ env.BUILD_ROOT }}
         set +e
         source build/envsetup.sh
         echo "envsetup exit: $?"
@@ -161,7 +162,7 @@ jobs:
 
     - name: Build Recovery
       run: |
-        cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
+        cd ${{ env.BUILD_ROOT }}
         set +e
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
@@ -196,14 +197,14 @@ jobs:
 
     - name: Check if Recovery Exist
       run: |
-        cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}
+        cd ${{ env.BUILD_ROOT }}
         if [ -f out/target/product/${{ inputs.DEVICE_NAME }}/OrangeFox*.img ]; then
             echo "CHECK_IMG_IS_OK=true" >> $GITHUB_ENV
-            echo "FILE_PATH=${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/out/target/product/${{ inputs.DEVICE_NAME }}" >> $GITHUB_ENV
+            echo "FILE_PATH=${{ env.BUILD_ROOT }}/out/target/product/${{ inputs.DEVICE_NAME }}" >> $GITHUB_ENV
             echo "MD5_IMG=$(md5sum out/target/product/${{ inputs.DEVICE_NAME }}/OrangeFox*.img | cut -d ' ' -f 1)" >> $GITHUB_ENV
         elif [ -f out/target/product/${{ inputs.DEVICE_NAME }}/target/product/${{ inputs.DEVICE_NAME }}/OrangeFox*.img ]; then
             echo "CHECK_IMG_IS_OK=true" >> $GITHUB_ENV
-            echo "FILE_PATH=${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/out/target/product/${{ inputs.DEVICE_NAME }}/target/product/${{ inputs.DEVICE_NAME }}" >> $GITHUB_ENV
+            echo "FILE_PATH=${{ env.BUILD_ROOT }}/out/target/product/${{ inputs.DEVICE_NAME }}/target/product/${{ inputs.DEVICE_NAME }}" >> $GITHUB_ENV
             echo "MD5_IMG=$(md5sum out/target/product/${{ inputs.DEVICE_NAME }}/target/product/${{ inputs.DEVICE_NAME }}/OrangeFox*.img | cut -d ' ' -f 1)" >> $GITHUB_ENV
         else
             echo "Recovery out directory is empty."
